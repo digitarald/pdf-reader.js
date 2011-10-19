@@ -1,0 +1,9 @@
+[submodule "css/vendor/lessins"]
+	path = css/vendor/lessins
+	url = https://github.com/jdmiller82/-lessins-.git
+[submodule "js/vendor/mootools-htmlx"]
+	path = js/vendor/mootools-htmlx
+	url = https://github.com/csuwldcat/mootools-htmlx.git
+[submodule "js/vendor/pdf-js"]
+	path = js/vendor/pdf-js
+	url = https://github.com/andreasgal/pdf.js.git
