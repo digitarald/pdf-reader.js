@@ -4,30 +4,14 @@
   <meta charset="utf-8">
 
   <title>PDF Reader JS</title>
-  <meta name="description" content="pdfreaderJS">
+  <meta name="description" content="PDF Reader JS">
   <meta name="author" content="Harald Kirschner, Mozilla Labs">
 
-  <meta name="HandheldFriendly" content="True">
-  <meta name="MobileOptimized" content="320">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
-  <!-- Home screen icon  Mathias Bynens http://goo.gl/6nVq0 -->
-  <!-- For iPhone 4 with high-resolution Retina display:
-  <link rel="apple-touch-icon-precomposed" sizes="114x114" href="img/h/apple-touch-icon.png">-->
-  <!-- For first-generation iPad:
-  <link rel="apple-touch-icon-precomposed" sizes="72x72" href="img/m/apple-touch-icon.png">-->
-  <!-- For non-Retina iPhone, iPod Touch, and Android 2.1+ devices:
-  <link rel="apple-touch-icon-precomposed" href="img/l/apple-touch-icon-precomposed.png">-->
-  <!-- For nokia devices:
-  <link rel="shortcut icon" href="img/l/apple-touch-icon.png">-->
-
-  <!--iOS web app, deletable if not needed
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <link rel="apple-touch-startup-image" href="img/l/splash.png">-->
-
-  <!-- Mobile IE allows us to activate ClearType technology for smoothing fonts for easy reading
-  <meta http-equiv="cleartype" content="on">-->
+  <link rel="apple-touch-icon" href="images/icon-48.png">
 
   <!-- Main Stylesheet -->
   <link rel="stylesheet" href="css/style.css?v=1">
@@ -40,21 +24,13 @@
 
     </header>
     <div id="main" role="main">
-
-			<canvas id="canvas" />
-
     </div>
-
     <footer>
 
     </footer>
   </div> <!--! end of #container -->
 
-  <script type="text/javascript" src="js/vendor/pdf-js/pdf.js"></script>
-  <script type="text/javascript" src="js/vendor/pdf-js/metrics.js"></script>
-  <script type="text/javascript" src="js/vendor/pdf-js/fonts.js"></script>
-  <script type="text/javascript" src="js/vendor/pdf-js/glyphlist.js"></script>
-  <script data-main="js/script" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/0.26.0/require.min.js"></script>
-
+  <script src="js/vendor/pdf-js/build/pdf.js"></script>
+  <script data-main="js/script" src="js/vendor/require.js"></script>
 </body>
 </html>
