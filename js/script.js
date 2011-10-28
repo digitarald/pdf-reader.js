@@ -6,7 +6,7 @@
 require.config({
 	baseUrl: 'js',
 	paths: {
-		'mootools': 'https://ajax.googleapis.com/ajax/libs/mootools/1.4.1/mootools'
+		'mootools': 'vendor/mootools'
 	}
 });
 
@@ -83,10 +83,17 @@ define(['mootools'], function() {
 				window.addEvent(touchSupport.start, this.onTouchStart.bind(this));
 				window.addEvent(touchSupport.move, this.onTouchMove.bind(this));
 				window.addEvent(touchSupport.end, this.onTouchEnd.bind(this));
+				
+				window.addEvent('gesturestart', this.onGestureStart.bind(this));
+				window.addEvent('gesturechange', this.onGestureChange.bind(this));
+				window.addEvent('gestureend', this.onGestureEnd.bind(this));
+				
 				window.addEvent('orientationchange', this.onResize.bind(this));
 			} else {
 				window.addEvent('dblclick', this.onDblClick.bind(this));
 			}
+			
+			this.layout();
 
 			this.loadFromURL();
 		},
@@ -103,6 +110,8 @@ define(['mootools'], function() {
 				progress = new Element('progress', {max: 100}),
 				status = new Element('label', {'id': 'progress'}).adopt(progress, label).inject(this.element);
 				
+			if (!('value' in progress)) progress.addClass('progress-spinner');
+				
 			xhr.onprogress = function(evt) {
 	      if (evt.lengthComputable) {
 	      	var percentage = Math.round(evt.loaded / evt.total * 100);
@@ -116,6 +125,7 @@ define(['mootools'], function() {
 				label.set('text', 'Could not open file.');
 			};
 			xhr.onload = function(evt) {
+				progress.value = 100;
 				label.set('text', 'Processing …');
 				
 				var buffer = xhr.mozResponseArrayBuffer || xhr.responseArrayBuffer || new Uint8Array(xhr.response);
@@ -123,11 +133,9 @@ define(['mootools'], function() {
 
 				this.doc = new PDFJS.PDFDoc(buffer);
 				
-				label.set('text', 'Rendering …');
+				status.destroy();
 				
 				this.setup();
-				
-				status.destroy();
 			}.bind(this);
 
 			xhr.send();
@@ -151,11 +159,11 @@ define(['mootools'], function() {
 			
 			this.element.setStyles({width: this.width, height: this.height});
 			
+			if (!this.ready) return;
+			
 			var previousLayout = this.pageLayout;
 			this.pageLayout = (this.width > this.height) ? 2 : 1;
 			this.pageNum - (this.pageNum - this.pageStart) % 2;
-			
-			if (!this.ready) return;
 			
 			if (previousLayout != this.pageLayout)
 				this.render();
@@ -163,18 +171,17 @@ define(['mootools'], function() {
 				this.updateRender();
 		},
 
-		render: function() {
+		render: function(direction) {
 			if (this.previousContainer) this.previousContainer.destroy();
 			this.previousContainer = this.currentContainer;
 			
 			var container = this.currentContainer = new Element('div', {
-				'class': 'page-container animated'
-			}),
-				innerContainer = new Element('div', {'class': 'page-container-inner'}).inject(container);
-			
-			if (this.previousContainer) {
-				container.setStyle(css3Support.transformStyle, 'translate(500px, 0)');
-			}
+				'class': 'page-container animated',
+				styles: {
+					zIndex: this.pageCount - this.pageNum + 100
+				}
+			});
+			var innerContainer = new Element('div', {'class': 'page-container-inner'}).inject(container);
 			
 			for (var i = 0; i < this.pageLayout; i++) {
 				var page = this.pageList[this.pageNum + i];
@@ -184,23 +191,38 @@ define(['mootools'], function() {
 				page.element.inject(innerContainer);
 			}
 			
-			container.inject(this.element);
-			container.offsetWidth;
-			container.setStyle(css3Support.transformStyle, 'translate(0px)');
-
-			container.addEventListener(css3Support.transitionEndEvent, function(evt) {
-				if (!this.previousContainer)
+			// Figure out animations
+			
+			// Clean up old elements after animation
+			var cleanup = function(previous) {
+				if (!previous || !previous.parentNode)
 					return;
 				
 				// Keep page references intact
-				this.previousContainer.getElements('canvas').dispose();
+				previous.getElements('.page').dispose();
 				
-				this.previousContainer.destroy();
-				this.previousContainer = null;
+				this.renderPreemptive(direction);
 				
-				this.renderPreemptive();
+				previous.destroy();
+				previous = null;
+			}.bind(this, this.previousContainer);
+			
+			if (direction == -1) {
+				container.setStyle(css3Support.transformStyle, 'translate(' + (-this.width) + 'px, 0)');
+				container.inject(this.element);
 				
-			}.bind(this), false);
+				container.offsetWidth; // flush repaint
+				container.setStyle(css3Support.transformStyle, 'translate(0px)');
+				container.addEventListener(css3Support.transitionEndEvent, cleanup, false);
+			} else if (this.previousContainer) {
+				container.inject(this.element);
+				
+				this.previousContainer.addEventListener(css3Support.transitionEndEvent, cleanup, false);
+				this.previousContainer.setStyle(css3Support.transformStyle, 'translate(' + -this.width + 'px, 0)');
+			} else {
+				container.inject(this.element);
+			}
+			
 		},
 		
 		updateRender: function() {
@@ -211,12 +233,20 @@ define(['mootools'], function() {
 			}
 		},
 		
-		renderPreemptive: function() {
-			return null; // TODO: Unskip?
+		renderPreemptive: function(direction) {
+			var from = (direction < 0)
+				? (this.pageNum - this.pageLayout * 2)
+				: (this.pageNum + this.pageLayout);
+			var to = (direction > 0)
+				? (this.pageNum + this.pageLayout * 2)
+				: (this.pageNum - 1);
+				
+			console.log('renderPreemptive', from, to);
 			
-			for (var i = 0; i < this.pageLayout; i++) {
-				var page = this.pageList[this.pageNum + this.pageLayout + i];
+			for (from; from < to; from++) {
+				var page = this.pageList[from];
 				if (!page) continue;
+				
 				page.render();
 			}
 		},
@@ -234,6 +264,14 @@ define(['mootools'], function() {
 			this.pan(zoom ? 2 : 1);
 		},
 		
+		turn: function(to) {
+			var num = this.pageNum + this.pageLayout * to;
+			if (num < 1 || num >= this.pageCount - this.pageLayout) return this;
+			
+			this.pageNum = num;
+			this.render(to);
+		},
+		
 		pan: function(zoomTo) {
 			zoomTo = zoomTo || this.scale;
 			
@@ -245,33 +283,37 @@ define(['mootools'], function() {
 				this.currentContainer.removeEventListener(css3Support.transitionEndEvent, endHandler, false);
 				
 				(function() {
-					this.updateRender();
-					
+
+					// Lock on target after zooming in
 					if (this.scale > 1) {
 					
 						this.currentContainer.removeClass('animated');
 						
-						// FIXME use translate for positioning
 						var styles = {
-							left: (- this.center.x) * this.scale + this.width / 2,
-							top: (- this.center.y) * this.scale + this.height / 2,
 							width: this.width * this.scale,
 							height: this.height * this.scale
 						};
-						styles[css3Support.transformStyle] = '';
+						var transform = 'translate({x}px, {y}px)'.substitute({
+							x: (- this.center.x) * this.scale + this.width / 2,
+							y: (- this.center.y) * this.scale + this.height / 2,
+						});
+						styles[css3Support.transformStyle] = transform;
 						this.currentContainer.setStyles(styles);
+						
+						this.updateRender();
 						
 						this.currentContainer.offsetLeft; // flush re-flow
 						this.currentContainer.addClass('animated');
+					} else {
+						this.updateRender();
 					}
 				}).delay(100, this);
 				
 			}.bind(this);
 			
-			// start transition
-			if (zoomTo > 1) {
+			
+			if (zoomTo > 1) { // Start zoom in
 				
-				// FIXME align correctly when
 				if (this.scale == zoomTo) {
 					var transform = 'translate({x}px, {y}px)'.substitute({
 						x: this.center.x * this.scale,
@@ -288,32 +330,28 @@ define(['mootools'], function() {
 				}
 				this.currentContainer.setStyle(css3Support.transformStyle, transform);
 				
-			} else {
+			} else { // Start zoom out
 				var previousScale = this.scale;
 				this.scale = 1;
 				
 				this.currentContainer.removeClass('animated');
 				
 				var transform = 'scale({scale}) translate({x}px, {y}px)'.substitute({
-					x: this.width / 2 - this.center.x,
-					y: this.height / 2 - this.center.y,
+					x: (- this.center.x) + this.width / 2,
+					y: (- this.center.y) + this.height / 2,
 					scale: previousScale
 				});
-				var styles = {left: null, top: null, width: null, height: null};
-				styles[css3Support.transformStyle] = transform;
-				this.currentContainer.setStyles(styles);
+				this.currentContainer.setStyle(css3Support.transformStyle, transform);
+				
+				this.currentContainer.setStyles({width: null, height: null});
 				
 				this.currentContainer.offsetLeft; // flush re-flow
 				this.currentContainer.addClass('animated');
 				
-				this.currentContainer.setStyle(css3Support.transformStyle, 'scale(1)');
+				this.currentContainer.setStyle(css3Support.transformStyle, 'scale(1) translate(0px, 0px)');
 			}
 			
-			if (this.currentContainer.getStyle(css3Support.transitionStyle)) {
-				this.currentContainer.addEventListener(css3Support.transitionEndEvent, endHandler, false);
-			} else {
-				endHandler.delay(200);
-			}
+			this.currentContainer.addEventListener(css3Support.transitionEndEvent, endHandler, false);
 		},
 
 		onKey: function(evt) {
@@ -325,9 +363,7 @@ define(['mootools'], function() {
 					this.center.x -= this.width / 10;
 					this.pan();
 				} else {
-					if (this.pageNum <= 1) break;
-					this.pageNum -= this.pageLayout;
-					this.render();
+					this.turn(-1);
 				}
 				break;
 			case 'right':
@@ -335,9 +371,7 @@ define(['mootools'], function() {
 					this.center.x += this.width / 10;
 					this.pan();
 				} else {
-					if (this.pageNum > this.pageCount - this.pageLayout) break;
-					this.pageNum += this.pageLayout;
-					this.render();
+					this.turn(1);
 				}
 				break;
 			case 'space':
@@ -385,12 +419,42 @@ define(['mootools'], function() {
 				time: Date.now()
 			};
 			
+			if (touch.x > this.width - this.width / 10) {
+				this.turn(1);
+			} else if (touch.x < this.width / 10) {
+				this.turn(-1);
+			}
+			
 			if (previous && touch.time < previous.time + 500) {
 				this.triggerZoom(evt.page.x, evt.page.y);
 			}
 		},
 		
-		onTouchStart: function(evt) {
+		onTouchMove: function(evt) {
+			evt.preventDefault();
+			
+			if (!this.ready) return;
+		},
+		
+		onTouchEnd: function(evt) {
+			evt.preventDefault();
+			
+			if (!this.ready) return;
+		},
+		
+		onGestureStart: function(evt) {
+			evt.preventDefault();
+			
+			if (!this.ready) return;
+		},
+		
+		onGestureChange: function(evt) {
+			evt.preventDefault();
+			
+			if (!this.ready) return;
+		},
+		
+		onGestureEnd: function(evt) {
 			evt.preventDefault();
 			
 			if (!this.ready) return;
@@ -454,13 +518,8 @@ define(['mootools'], function() {
 				return;
 				
 			this.version = version;
-			this.width = size.x;
-			this.height = size.y;
-			
-			this.element.setStyles({
-				width: this.width,
-				height: this.height
-			});
+			this.width = size.x.floor();
+			this.height = size.y.floor();
 			
 			var current = this.canvasList[this.version];
 			if (current && current.width == this.width && current.height == this.height) {
@@ -470,8 +529,6 @@ define(['mootools'], function() {
 				return this;
 			}
 			
-			console.log('PR.Page: Render ' + this.num + '-' + version);
-
 			// Clean up old version
 			if (current) current = current.destroy();
 				
@@ -481,6 +538,22 @@ define(['mootools'], function() {
 			// Prepare canvas 
 			canvas.width = this.width;
 			canvas.height = this.height;
+			
+			this.element.setStyles({
+				width: (this.width / this.container.width * 100).round(3) + '%',
+				height: (this.height / this.container.height * 100).round(3) + '%'
+			});
+			
+			/*
+				maxHeight: (this.height / this.container.height * 100).round(3) + '%',
+				minWidth: (this.width / this.container.width * 100).round(3) + '%',
+				minHeight: (this.height / this.container.height * 100).round(3) + '%'
+			 */
+			
+			// this.element.setStyles({
+				// width: this.width,
+				// height: this.height
+			// });
 			
 			this.running.push(this.version);
 			this.container.running++;
@@ -496,10 +569,10 @@ define(['mootools'], function() {
 		onRenderComplete: function() {
 			this.running.erase(this.version);
 			
+			this.canvasList[this.version].inject(this.element);
+			
 			Object.each(this.canvasList, function(canvas, version) {
-				if (this.version == version) {
-					canvas.inject(this.element);
-				} else {
+				if (this.version != version) {
 					canvas.dispose();
 				}
 			}, this);
@@ -507,6 +580,6 @@ define(['mootools'], function() {
 
 	}); // end PR.Page
 
-	new PR.Container('samples/improving-interface-design-29757.pdf');
+	new PR.Container('samples/238670-Innovation-Horizon.pdf');
 	
 }); // end define
