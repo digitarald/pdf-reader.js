@@ -1,75 +1,3 @@
-/*--------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------*/
-/*----------------------------- BUNDLED MIXINS -----------------------------*/
-/*--------------------------------------------------------------------------*/
-/*-------------------------- DISPLAY MIXIN BUNDLE --------------------------*/
-/*-- .block(); .block-centered(); .block-inline(); .block-inline-float(); --*/
-#display {
-  /*-- DISPLAY MIXIN BUNDLE --*/
-
-}
-/*-------------------------- BORDER MIXIN BUNDLE ---------------------------*/
-/*-------------------------- .lines(); .radius(); --------------------------*/
-#border {
-  /*-- BORDER MIXIN BUNDLE --*/
-
-}
-/*---------------------------- BOX MIXIN BUNDLE ----------------------------*/
-/*----------------- .shadow(); .shadow-inset(); .sizing(); -----------------*/
-#box {
-  /*-- BOX MIXIN BUNDLE --*/
-
-}
-/*--------------------- FLEXIBLE BOX MODEL MIXIN BUNDLE --------------------*/
-/*---------------------------- .wrap(); .box(); ----------------------------*/
-#flex {
-  /*-- FLEXIBLE BOX MODEL MIXIN BUNDLE --*/
-
-  /* @orient: horizontal | vertical | inherit */
-
-  /* @align: start | end | center | baseline | stretch */
-
-  /* @direction: normal | reverse */
-
-  /* @pack: start | end | center | justify */
-
-  /*Note: @flex:0 = inflexible. */
-
-}
-/*-------------------------- GRADIENT MIXIN BUNDLE -------------------------*/
-/*--------- .horizontal(); .vertical(); .vertical-three-colors(); ----------*/
-#gradient {
-  /*-- GRADIENT MIXIN BUNDLE --*/
-
-}
-/*------------------------- TRANSFORM MIXIN BUNDLE -------------------------*/
-/*-------------- .translate(); .scale(); .rotate(); .skew(); ---------------*/
-#transform {
-  /*-- TRANSFORM MIXIN BUNDLE --*/
-
-}
-/*------------------------- TRANSITION MIXIN BUNDLE ------------------------*/
-/*---------------------------- .transition(); ------------------------------*/
-#transition {
-  /*-- TRANSITION MIXIN --*/
-
-}
-/*--------------------------- IMAGE MIXIN BUNDLE ---------------------------*/
-/*-------------------------- .replace(); .mask(); --------------------------*/
-#image {
-  /*-- IMAGE MIXIN BUNDLE --*/
-
-}
-/*--------------------------- LAYOUT MIXIN BUNDLE --------------------------*/
-/*------------------------------ .columns(); -------------------------------*/
-#layout {
-  /*-- LAYOUT MIXIN BUNDLE --*/
-
-}
-/*--------------------------------------------------------------------------*/
-/*---------------------------- CONFIG VARIABLES ----------------------------*/
-/*--------------------------------------------------------------------------*/
 /* reset.css */
 html {
   margin: 0;
@@ -246,26 +174,8 @@ body {
   -webkit-transition: -webkit-transform 0.3s ease-out;
   transition: transform 0.3s ease-out;
 }
-.page-container-inner {
-  white-space: nowrap;
-  width: 100%;
-  height: 100%;
-  display: -moz-box;
-  display: -webkit-box;
-  display: box;
-  -moz-box-orient: horizontal;
-  -webkit-box-orient: horizontal;
-  box-orient: horizontal;
-  -moz-box-pack: center;
-  -webkit-box-pack: center;
-  box-pack: center;
-  -moz-box-align: center;
-  -webkit-box-align: center;
-  box-align: center;
-}
 .page {
-  position: relative;
-  display: inline-block;
+  position: absolute;
   /*
 	-moz-box-shadow: 3px 3px 4px rgba(40, 40, 40, 0.6);
 	-webkit-box-shadow: 3px 3px 4px rgba(40, 40, 40, 0.6);
@@ -278,6 +188,6 @@ body {
   position: absolute;
   left: 0;
   top: 0;
-  bottom: 0;
-  right: 0;
+  width: 100%;
+  height: 100%;
 }

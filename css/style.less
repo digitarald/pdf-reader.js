@@ -1,6 +1,3 @@
-@import 'vendor/lessins/lessins.less';
-
-@img-path: '/images';
 
 /* reset.css */
 html {margin:0;padding:0;border:0;}
@@ -96,29 +93,8 @@ body {
 	}
 }
 
-.page-container-inner {
-	white-space: nowrap;
-	
-	width: 100%;
-	height: 100%;
-	
-	display: -moz-box;
-  display: -webkit-box;
-	display: box;
-  -moz-box-orient: horizontal;
-  -webkit-box-orient: horizontal;
-  box-orient: horizontal;
-  -moz-box-pack: center;
-  -webkit-box-pack: center;
-  box-pack: center;
-  -moz-box-align: center;
-  -webkit-box-align: center;
-  box-align: center;
-}
-
 .page {
-	position: relative;
-	display: inline-block;
+	position: absolute;
 	
 	/*
 	-moz-box-shadow: 3px 3px 4px rgba(40, 40, 40, 0.6);
@@ -131,7 +107,7 @@ body {
 		position: absolute;
 		left: 0;
 		top: 0;
-		bottom: 0;
-		right: 0;
+		width: 100%;
+		height: 100%;
 	}
 }

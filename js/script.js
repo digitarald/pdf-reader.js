@@ -181,14 +181,13 @@ define(['mootools'], function() {
 					zIndex: this.pageCount - this.pageNum + 100
 				}
 			});
-			var innerContainer = new Element('div', {'class': 'page-container-inner'}).inject(container);
 			
 			for (var i = 0; i < this.pageLayout; i++) {
 				var page = this.pageList[this.pageNum + i];
 				if (!page) continue; // TODO: add empty page?
 				
 				page.render();
-				page.element.inject(innerContainer);
+				page.element.inject(container);
 			}
 			
 			// Figure out animations
@@ -241,8 +240,6 @@ define(['mootools'], function() {
 				? (this.pageNum + this.pageLayout * 2)
 				: (this.pageNum - 1);
 				
-			console.log('renderPreemptive', from, to);
-			
 			for (from; from < to; from++) {
 				var page = this.pageList[from];
 				if (!page) continue;
@@ -496,14 +493,16 @@ define(['mootools'], function() {
 		render: function(version, bounds) {
 			if (!this.setup())
 				return;
-			
+				
 			// TODO handle .running, by delayed render
 			
-			var scale = this.container.scale;
+			var scale = this.container.scale,
+				pageLayout = this.container.pageLayout,
+				position = (this.num - 1) % pageLayout;
 			
 			version = version || 'original';
 			bounds = bounds || {
-				x: this.container.width * scale / this.container.pageLayout,
+				x: this.container.width * scale / pageLayout,
 				y: this.container.height * scale
 			};
 
@@ -514,7 +513,7 @@ define(['mootools'], function() {
 					? {x: bounds.x, y: docSize.y / sizeRel.x} // stretch by x
 					: {x: docSize.x / sizeRel.y, y: bounds.y}; // stretch by y
 			
-			if (this.version == 'version' && this.width == size.x && this.height == size.y)
+			if (this.version == version && this.width == size.x && this.height == size.y)
 				return;
 				
 			this.version = version;
@@ -539,21 +538,35 @@ define(['mootools'], function() {
 			canvas.width = this.width;
 			canvas.height = this.height;
 			
-			this.element.setStyles({
-				width: (this.width / this.container.width * 100).round(3) + '%',
-				height: (this.height / this.container.height * 100).round(3) + '%'
-			});
+			var percentages = {
+				x: (this.width / bounds.x / pageLayout * 100),
+				y: (this.height / bounds.y * 100)
+			}, styles = {
+				width: percentages.x + '%',
+				height: percentages.y + '%',
+				top: ((100 - percentages.y) / 2) + '%'
+			};
+			
+			if (pageLayout == 1) {
+				styles.left = ((100 - percentages.x) / 2) + '%';
+			} else {
+				styles[(position) ? 'left' : 'right'] = 50 + '%';
+			}
+			
+			this.element.setStyles(styles);
 			
 			/*
-				maxHeight: (this.height / this.container.height * 100).round(3) + '%',
-				minWidth: (this.width / this.container.width * 100).round(3) + '%',
-				minHeight: (this.height / this.container.height * 100).round(3) + '%'
+			maxHeight: (this.height / this.container.height * 100).round(3) + '%',
+			minWidth: (this.width / this.container.width * 100).round(3) + '%',
+			minHeight: (this.height / this.container.height * 100).round(3) + '%'
 			 */
 			
-			// this.element.setStyles({
-				// width: this.width,
-				// height: this.height
-			// });
+			/*
+			this.element.setStyles({
+				width: this.width,
+				height: this.height
+			});
+			*/
 			
 			this.running.push(this.version);
 			this.container.running++;
@@ -563,6 +576,7 @@ define(['mootools'], function() {
 			// Render PDF page into canvas context
 			this.doc.startRendering(context, this.onRenderComplete.bind(this));
 			
+			
 			return this;
 		},
 		
@@ -570,7 +584,6 @@ define(['mootools'], function() {
 			this.running.erase(this.version);
 			
 			this.canvasList[this.version].inject(this.element);
-			
 			Object.each(this.canvasList, function(canvas, version) {
 				if (this.version != version) {
 					canvas.dispose();
