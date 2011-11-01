@@ -70,7 +70,17 @@ PR.Container = new Class({
 		window.addEvent('keydown', this.onKey.bind(this));
 		window.addEvent('resize', this.onResize.bind(this));
 		
+		window.addEvent('swipe', function(evt) {
+			this.turn((evt.direction == 'left') ? 1 : -1);
+		}.bind(this));
+		
 		if (touchSupport.touchy) {
+
+			window.addEvent('pinch', function(evt) {
+				this.pan((evt.pinch == 'in') ? 2 : 1);
+			}.bind(this));
+						
+			/*
 			window.addEvent(touchSupport.start, this.onTouchStart.bind(this));
 			window.addEvent(touchSupport.move, this.onTouchMove.bind(this));
 			window.addEvent(touchSupport.end, this.onTouchEnd.bind(this));
@@ -78,6 +88,7 @@ PR.Container = new Class({
 			window.addEvent('gesturestart', this.onGestureStart.bind(this));
 			window.addEvent('gesturechange', this.onGestureChange.bind(this));
 			window.addEvent('gestureend', this.onGestureEnd.bind(this));
+			*/
 			
 			window.addEvent('orientationchange', this.onResize.bind(this));
 		} else {
