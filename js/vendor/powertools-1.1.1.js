@@ -1,43 +1,4 @@
-// packager build Mobile/Browser.Mobile Mobile/Touch Mobile/Pinch Mobile/Swipe History/History.handleInitialState
-/*
----
-
-name: Browser.Mobile
-
-description: Provides useful information about the browser environment
-
-authors: Christoph Pojer (@cpojer)
-
-license: MIT-style license.
-
-requires: [Core/Browser]
-
-provides: Browser.Mobile
-
-...
-*/
-
-(function(){
-
-Browser.Device = {
-	name: 'other'
-};
-
-if (Browser.Platform.ios){
-	var device = navigator.userAgent.toLowerCase().match(/(ip(ad|od|hone))/)[0];
-	
-	Browser.Device[device] = true;
-	Browser.Device.name = device;
-}
-
-if (this.devicePixelRatio == 2)
-	Browser.hasHighResolution = true;
-
-Browser.isMobile = !['mac', 'linux', 'win'].contains(Browser.Platform.name);
-
-}).call(this);
-
-
+// packager build Mobile/Mouse Mobile/Touch Mobile/Click Mobile/Pinch Mobile/Swipe
 /*
 ---
 
@@ -62,70 +23,67 @@ provides: Element.defineCustomEvent
 	var events = this.retrieve('events'),
 		list = (events && events[event]) ? events[event].values : null;
 	if (list){
-		for (var i = list.length; i--;) if (i in list){
+		var i = list.length;
+		while (i--) if (i in list){
 			return true;
 		}
 	}
 	return false;
 }});
 
-var wrap = function(custom, method, extended, name){
+var wrap = function(custom, method, extended){
 	method = custom[method];
 	extended = custom[extended];
 
-	return function(fn, customName){
-		if (!customName) customName = name;
-
-		if (extended && !this.hasEvent(customName)) extended.call(this, fn, customName);
-		if (method) method.call(this, fn, customName);
+	return function(fn, name){
+		if (extended && !this.hasEvent(name)) extended.call(this, fn, name);
+		if (method) method.call(this, fn, name);
 	};
 };
 
-var inherit = function(custom, base, method, name){
-	return function(fn, customName){
-		base[method].call(this, fn, customName || name);
-		custom[method].call(this, fn, customName || name);
+var inherit = function(custom, base, method){
+	return function(fn, name){
+		base[method].call(this, fn, name);
+		custom[method].call(this, fn, name);
 	};
 };
 
 var events = Element.Events;
 
 Element.defineCustomEvent = function(name, custom){
-
 	var base = events[custom.base];
 
-	custom.onAdd = wrap(custom, 'onAdd', 'onSetup', name);
-	custom.onRemove = wrap(custom, 'onRemove', 'onTeardown', name);
+	custom.onAdd = wrap(custom, 'onAdd', 'onSetup');
+	custom.onRemove = wrap(custom, 'onRemove', 'onTeardown');
 
 	events[name] = base ? Object.append({}, custom, {
 
 		base: base.base,
 
-		condition: function(event){
-			return (!base.condition || base.condition.call(this, event)) &&
-				(!custom.condition || custom.condition.call(this, event));
+		condition: function(event, name){
+			return (!base.condition || base.condition.call(this, event, name)) &&
+				(!custom.condition || custom.condition.call(this, event, name));
 		},
 
-		onAdd: inherit(custom, base, 'onAdd', name),
-		onRemove: inherit(custom, base, 'onRemove', name)
+		onAdd: inherit(custom, base, 'onAdd'),
+		onRemove: inherit(custom, base, 'onRemove')
 
 	}) : custom;
 
 	return this;
-
 };
 
-var loop = function(name){
-	var method = 'on' + name.capitalize();
-	Element[name + 'CustomEvents'] = function(){
-		Object.each(events, function(event, name){
-			if (event[method]) event[method].call(event, name);
-		});
-	};
-	return loop;
+Element.enableCustomEvents = function(){
+  Object.each(events, function(event, name){
+    if (event.onEnable) event.onEnable.call(event, name);
+  });
 };
 
-loop('enable')('disable');
+Element.disableCustomEvents = function(){
+  Object.each(events, function(event, name){
+    if (event.onDisable) event.onDisable.call(event, name);
+  });
+};
 
 })();
 
@@ -180,6 +138,59 @@ Browser.Features.iOSTouch = (function(){
 
 	handler(); // Remove listener
 	return false;
+})();
+
+
+/*
+---
+
+name: Mouse
+
+description: Maps mouse events to their touch counterparts
+
+authors: Christoph Pojer (@cpojer)
+
+license: MIT-style license.
+
+requires: [Custom-Event/Element.defineCustomEvent, Browser.Features.Touch]
+
+provides: Mouse
+
+...
+*/
+
+if (!Browser.Features.Touch) (function(){
+
+var condition = function(event){
+	event.targetTouches = [];
+	event.changedTouches = event.touches = [{
+		pageX: event.page.x, pageY: event.page.y,
+		clientX: event.client.x, clientY: event.client.y
+	}];
+
+	return true;
+};
+
+Element.defineCustomEvent('touchstart', {
+
+	base: 'mousedown',
+
+	condition: condition
+
+}).defineCustomEvent('touchmove', {
+
+	base: 'mousemove',
+
+	condition: condition
+
+}).defineCustomEvent('touchend', {
+
+	base: 'mouseup',
+
+	condition: condition
+
+});
+
 })();
 
 
@@ -242,6 +253,38 @@ Element.defineCustomEvent('touch', {
 	onDisable: function(){
 		disabled = true;
 	}
+
+});
+
+})();
+
+
+/*
+---
+
+name: Click
+
+description: Provides a replacement for click events on mobile devices
+
+authors: Christoph Pojer (@cpojer)
+
+license: MIT-style license.
+
+requires: [Touch]
+
+provides: Click
+
+...
+*/
+
+if (Browser.Features.iOSTouch) (function(){
+
+var name = 'click';
+delete Element.NativeEvents[name];
+
+Element.defineCustomEvent(name, {
+
+	base: 'touch'
 
 });
 
@@ -411,180 +454,4 @@ Element.defineCustomEvent(name, {
 });
 
 })();
-
-
-/*
----
-
-name: Class.Binds
-
-description: A clean Class.Binds Implementation
-
-authors: Scott Kyle (@appden), Christoph Pojer (@cpojer)
-
-license: MIT-style license.
-
-requires: [Core/Class, Core/Function]
-
-provides: Class.Binds
-
-...
-*/
-
-Class.Binds = new Class({
-
-	$bound: {},
-
-	bound: function(name){
-		return this.$bound[name] ? this.$bound[name] : this.$bound[name] = this[name].bind(this);
-	}
-
-});
-
-/*
----
-
-name: History
-
-description: History Management via popstate or hashchange.
-
-authors: Christoph Pojer (@cpojer)
-
-license: MIT-style license.
-
-requires: [Core/Events, Core/Element.Event, Class-Extras/Class.Binds]
-
-provides: History
-
-...
-*/
-
-(function(){
-
-var events = Element.NativeEvents,
-	location = window.location,
-	base = location.pathname,
-	history = window.history,
-	hasPushState = ('pushState' in history),
-	event = hasPushState ? 'popstate' : 'hashchange';
-
-this.History = new new Class({
-
-	Implements: [Class.Binds, Events],
-
-	initialize: hasPushState ? function(){
-		events[event] = 2;
-		window.addEvent(event, this.bound('pop'));
-	} : function(){
-		events[event] = 1;
-		window.addEvent(event, this.bound('pop'));
-
-		this.hash = location.hash;
-		var hashchange = ('onhashchange' in window);
-		if (!(hashchange && (document.documentMode === undefined || document.documentMode > 7)))
-			this.timer = this.check.periodical(200, this);
-	},
-
-	push: hasPushState ? function(url, title, state){
-		if (base && base != url) base = null;
-		
-		history.pushState(state || null, title || null, url);
-		this.onChange(url, state);
-	} : function(url){
-		location.hash = url;
-	},
-
-	replace: hasPushState ? function(url, title, state){
-		history.replaceState(state || null, title || null, url);
-	} : function(url){
-		this.hash = '#' + url;
-		this.push(url);
-	},
-
-	pop: hasPushState ? function(event){
-		var url = location.pathname;
-		if (url == base){
-			base = null;
-			return;
-		}
-		this.onChange(url, event.event.state);
-	} : function(){
-		var hash = location.hash;
-		if (this.hash == hash) return;
-
-		this.hash = hash;
-		this.onChange(hash.substr(1));
-	},
-
-	onChange: function(url, state){
-		this.fireEvent('change', [url, state || {}]);
-	},
-
-	back: function(){
-		history.back();
-	},
-
-	forward: function(){
-		history.forward();
-	},
-	
-	getPath: function(){
-		return hasPushState ? location.pathname : location.hash.substr(1);
-	},
-
-	hasPushState: function(){
-		return hasPushState;
-	},
-
-	check: function(){
-		if (this.hash != location.hash) this.pop();
-	}
-
-});
-
-}).call(this);
-
-
-/*
----
-
-name: History.handleInitialState
-
-description: Provides a helper method to handle the initial state of your application.
-
-authors: Christoph Pojer (@cpojer)
-
-license: MIT-style license.
-
-requires: [History]
-
-provides: History.handleInitialState
-
-...
-*/
-
-History.handleInitialState = function(base){
-	if (!base) base = '';
-	var location = window.location,
-		pathname = location.pathname.substr(base.length),
-		hash = location.hash,
-		hasPushState = History.hasPushState();
-
-	if (!hasPushState && pathname.length > 1){
-		window.location = (base || '/') + '#' + pathname;
-		return true;
-	}
-
-	if (!hash || hash.length <= 1) return false;
-	if (hasPushState){
-		(function(){
-			History.push(hash.substr(1));
-		}).delay(1);
-		return false;
-	}
-
-	if (!pathname || pathname == '/') return false;
-	window.location = (base || '/') + hash;
-	return true;
-};
 
