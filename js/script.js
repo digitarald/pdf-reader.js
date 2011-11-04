@@ -68,25 +68,23 @@ var touchSupport = (function() {
  */
 PR.Container = new Class({
 
-	initialize: function(fileURL) {
+	initialize: function() {
 		this.element = document.id('main').setStyle('display', '');
 		
-		this.dashboard = document.id('dashboard').setStyle('display', 'none');
+		this.dashboard = document.id('dashboard');
 		this.progress = document.id('progress').setStyle('display', 'none');
 
-		this.fileURL = fileURL;
-
 		this.pages = {};
-
 		this.pageLayout = 0;
 		this.pageOrientation = 0;
+		this.pageWidth = this.pageHeight = 1;
+
 		this.running = 0;
 		this.pageNum = 1;
 		// 1 is cover, 2 is actual index
-		this.pageStart = 1;
+		this.pageStart = 2;
 		this.scale = 1;
 		
-		this.pageWidth = this.pageHeight = 1;
 		
 		this.isReady = false;
 		this.interactive = false;
@@ -126,25 +124,58 @@ PR.Container = new Class({
 			window.addEvent('mousewheel', this.onScroll.bind(this));
 		}
 		
+		this.dashboard.addEvent('click:relay(a)', function(evt) {
+			evt.preventDefault();
+			
+			var href = evt.target.href;
+			
+			if (!href) return;
+			
+			this.dashboard.setStyle('display', 'none');
+			
+			this.fileURL = href;
+			this.load();
+		}.bind(this));
+		
 		this.layout();
 		
-		this.store = new StickyStore({
-			name: 'files',
-			ready: this.ready.bind(this),
-			size: 200
-		});
+		this.reset();
+		
+		// this.store = new StickyStore({
+			// name: 'files',
+			// ready: this.ready.bind(this),
+			// size: 200
+		// });
 	},
 	
-	ready: function() {
-		this.store.get(this.fileURL, function(buffer) {
-			if (buffer) {
-				this.doc = new PDFJS.PDFDoc(buffer.toUint8Array());
-				this.setup();
-			} else {
-				this.load();
-			}
-		}.bind(this));
+	reset: function() {
+		this.fileURL = null;
+		
+		if (this.previousContainer) this.previousContainer.destroy();
+		if (this.currentContainer) this.currentContainer.destroy();
+		
+		this.previousContainer = this.currentContainer = null;
+		
+		if (this.doc) this.doc.destroy();
+		this.pageList = this.doc = null;
+		
+		this.interactive = this.isReady = false;
+		
+		this.pageNum = 1;
+		
+		this.dashboard.setStyle('display', '');
 	},
+	
+	// ready: function() {
+		// this.store.get(this.fileURL, function(buffer) {
+			// if (buffer) {
+				// this.doc = new PDFJS.PDFDoc(buffer.toUint8Array());
+				// this.setup();
+			// } else {
+				// this.load();
+			// }
+		// }.bind(this));
+	// },
 
 	// TODO Split loader/progress indicator into extra class (with interface for DB loading)
 	load: function() {
@@ -223,7 +254,7 @@ PR.Container = new Class({
 		this.pageOrientation = this.pageWidth > this.pageHeight;
 		
 		// TODO Fix for small sizes that should already switch 
-		this.pageLayout = (!this.pageOrientation && this.pageHeight / this.height > this.pageWidth / this.width) ? 2 : 1;
+		this.pageLayout = (!this.pageOrientation && this.pageHeight / this.height > this.pageWidth * 2 / this.width) ? 2 : 1;
 		
 		// TODO Fix for single-page layout
 		this.pageNum = 1 + (this.pageNum - this.pageStart) % this.pageLayout;
@@ -244,6 +275,8 @@ PR.Container = new Class({
 				zIndex: this.pageCount - this.pageNum + 100
 			}
 		});
+		
+		console.log(this.currentContainer);
 		
 		for (var i = 0; i < this.pageLayout; i++) {
 			var page = this.pageList[this.pageNum + i];
@@ -296,6 +329,7 @@ PR.Container = new Class({
 		for (var i = 0; i < this.pageLayout; i++) {
 			var page = this.pageList[this.pageNum + i];
 			if (!page) continue; // TODO: add empty page?
+			
 			page.render((this.scale == 1) ? 'original' : 'zoom');
 		}
 	},
@@ -424,7 +458,6 @@ PR.Container = new Class({
 				scale: previousScale
 			});
 			this.currentContainer.setStyle(css3Support.transformStyle, transform);
-			
 			this.currentContainer.setStyles({width: null, height: null});
 			
 			this.currentContainer.offsetLeft; // flush re-flow
@@ -456,8 +489,27 @@ PR.Container = new Class({
 				this.turn(1);
 			}
 			break;
+		case 'up':
+			if (this.scale > 1) {
+				this.center.y -= this.height / 10;
+				this.pan();
+			} else {
+				this.turn(-1);
+			}
+			break;
+		case 'down':
+			if (this.scale > 1) {
+				this.center.y += this.height / 10;
+				this.pan();
+			} else {
+				this.turn(1);
+			}
+			break;
 		case 'space':
 			this.triggerZoom();
+			break;
+		case 'esc':
+			if (this.fileURL) this.reset();
 			break;
 		case 'up':
 			break;
@@ -493,7 +545,7 @@ PR.Container = new Class({
 		
 		if (this.scale > 1) {
 			// TODO Allow zoom in wheel when scale works fine
-			if (evt.wheel > 0) this.pan(1);
+			if (evt.wheel < 0) this.pan(1);
 		} else {
 			this.turn((evt.wheel < 0) ? 1 : -1);
 		}
@@ -631,11 +683,12 @@ PR.Page = new Class({
 		// TODO handle .running, by delayed render
 		
 		var scale = this.container.scale,
-			pageLayout = this.container.pageLayout,
-			position = (this.num - this.container.pageStart) % pageLayout;
+			pageLayout = this.container.pageLayout;
+			
+		var stand = this.stand = (this.num - this.container.pageStart) % pageLayout;
 		
 		version = version || 'original';
-		bounds = bounds || {
+		this.bounds = bounds = bounds || {
 			x: this.container.width * scale / pageLayout,
 			y: this.container.height * scale
 		};
@@ -648,6 +701,7 @@ PR.Page = new Class({
 				: {x: docSize.x / sizeRel.y, y: bounds.y}; // stretch by y
 		
 		if (this.version == version && this.width == size.x && this.height == size.y) {
+			this.position();
 			this.doc = null;
 			return;
 		}
@@ -673,22 +727,7 @@ PR.Page = new Class({
 		canvas.width = this.width;
 		canvas.height = this.height;
 		
-		var percentages = {
-			x: (this.width / bounds.x / pageLayout * 100),
-			y: (this.height / bounds.y * 100)
-		}, styles = {
-			width: percentages.x + '%',
-			height: percentages.y + '%',
-			top: ((100 - percentages.y) / 2) + '%'
-		};
-		
-		if (pageLayout == 1) {
-			styles.left = ((100 - percentages.x) / 2) + '%';
-		} else {
-			styles[(position) ? 'left' : 'right'] = 50 + '%';
-		}
-		
-		this.element.setStyles(styles);
+		this.position();
 		
 		this.running.push(this.version);
 		this.container.running++;
@@ -700,6 +739,10 @@ PR.Page = new Class({
 		this.doc.startRendering(context, this.onRenderComplete.bind(this));
 		this.doc = null;
 		
+		// if (useWorker) {
+			// this.injectRender();
+		// }
+		
 		return this;
 	},
 	
@@ -707,6 +750,36 @@ PR.Page = new Class({
 		console.timeEnd('doc.startRendering ' + this.num + ' / ' + this.version);
 		
 		this.running.erase(this.version);
+		
+		this.injectRender();
+	},
+	
+	position: function() {
+		if (this.bounds.positioned) return;
+		
+		var pageLayout = this.container.pageLayout,
+			percentages = {
+				x: (this.width / this.bounds.x / this.container.pageLayout * 100),
+				y: (this.height / this.bounds.y * 100)
+			}, styles = {
+				width: percentages.x + '%',
+				height: percentages.y + '%',
+				top: ((100 - percentages.y) / 2) + '%'
+			};
+		
+		if (this.container.pageLayout == 1) {
+			styles.left = ((100 - percentages.x) / 2) + '%';
+		} else {
+			styles[(this.stand) ? 'left' : 'right'] = 50 + '%';
+		}
+		
+		this.element.setStyles(styles);
+		
+		this.bounds.positioned = true;
+	},
+	
+	injectRender: function() {
+		if (this.canvasList[this.version].parentNode) return;
 		
 		this.canvasList[this.version].inject(this.element);
 		Object.each(this.canvasList, function(canvas, version) {

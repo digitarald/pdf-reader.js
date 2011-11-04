@@ -58,8 +58,49 @@ body {
   -webkit-box-align: center;
   box-align: center;
   
-  li {
+  ul {
+  	list-style: none;
+  	width: 350px;
+  	border-radius: 7px;
+  	border: 1px solid rgba(0, 0, 0, 0.35);
+  	background-color: #fff;
+  	
+  	-moz-box-shadow: 1px 1px 4px rgba(40, 40, 40, 0.25) inset;
+		-webkit-box-shadow: 2px 1px 4px rgba(40, 40, 40, 0.25) inset;
+		box-shadow: 1px 1px 4px rgba(40, 40, 40, 0.25) inset;
+  	
+  	li {
+  		display: block;
+  		font-weight: bold;
+  		overflow: none;
+  		
+  		a {
+  			line-height: 3em;
+  			display: block;
+  			padding: 0 1.2em;
+  			color: #333;
+  			text-decoration: none;
+  			
+  			&:hover {
+  				color: #fff;
+  				background-color: #0088cc;
+				}
+  		}
+  		 
+  		border-top: 1px solid #eee;
+			&:first-child {
+				border-top: none;
+			}
+		}
 	}
+}
+
+nav {
+	display: none;
+	z-index: 1000;
+	position: absolute;
+	right: 10px;
+	bottom: 10px;
 }
 
 #progress {
