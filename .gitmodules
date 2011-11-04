@@ -1,3 +1,6 @@
 [submodule "js/vendor/pdf-js"]
 	path = js/vendor/pdf-js
 	url = https://github.com/mozilla/pdf.js.git
+[submodule "js/vendor/sticky"]
+	path = js/vendor/sticky
+	url = https://github.com/alexmng/sticky.git

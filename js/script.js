@@ -5,6 +5,23 @@
 
 var PR = {};
 
+Uint8Array.prototype.toUnicode = function() {
+	console.time('Uint8Array.toUnicode');
+	var i = this.length, buffer = new Array(i);
+	while (i--) buffer[i] = String.fromCharCode(this[i]);
+	return buffer.join('');
+	console.timeEnd('Uint8Array.toUnicode');
+};
+
+String.prototype.toUint8Array = function() {
+	console.time('String.toUint8Array');
+	var i = this.length, buffer = new Uint8Array(i);
+	while (i--) buffer[i] = this.charCodeAt(i);
+	console.timeEnd('String.toUint8Array');
+	return buffer;
+};
+
+
 // Poor man's modernizr for CSS3
 var css3Support = (function() {
 	var style = document.documentElement.style;
@@ -52,65 +69,94 @@ var touchSupport = (function() {
 PR.Container = new Class({
 
 	initialize: function(fileURL) {
-		this.element = document.id('main');
+		this.element = document.id('main').setStyle('display', '');
+		
+		this.dashboard = document.id('dashboard').setStyle('display', 'none');
+		this.progress = document.id('progress').setStyle('display', 'none');
 
 		this.fileURL = fileURL;
 
 		this.pages = {};
 
 		this.pageLayout = 0;
+		this.pageOrientation = 0;
 		this.running = 0;
 		this.pageNum = 1;
 		// 1 is cover, 2 is actual index
-		this.pageStart = 2;
+		this.pageStart = 1;
 		this.scale = 1;
 		
-		this.ready = false;
+		this.pageWidth = this.pageHeight = 1;
+		
+		this.isReady = false;
+		this.interactive = false;
+		
+		PDFJS.workerSrc = location.pathname + 'js/vendor/pdf-js/src/worker_loader.js';
 
 		window.addEvent('keydown', this.onKey.bind(this));
 		window.addEvent('resize', this.onResize.bind(this));
 		
-		window.addEvent('swipe', function(evt) {
-			this.turn((evt.direction == 'left') ? 1 : -1);
-		}.bind(this));
+		// window.addEvent('swipe', function(evt) {
+			// this.touchLast = null;
+			// this.turn((evt.direction == 'left') ? 1 : -1);
+		// }.bind(this));
+		
+		window.addEvent(touchSupport.start, this.onTouchStart.bind(this));
+		window.addEvent(touchSupport.move, this.onTouchMove.bind(this));
+		window.addEvent(touchSupport.end, this.onTouchEnd.bind(this));
 		
 		if (touchSupport.touchy) {
 
 			window.addEvent('pinch', function(evt) {
+				this.touchLast = null;
 				this.pan((evt.pinch == 'in') ? 2 : 1);
 			}.bind(this));
-						
-			/*
-			window.addEvent(touchSupport.start, this.onTouchStart.bind(this));
-			window.addEvent(touchSupport.move, this.onTouchMove.bind(this));
-			window.addEvent(touchSupport.end, this.onTouchEnd.bind(this));
 			
+			// Prevent gestures
 			window.addEvent('gesturestart', this.onGestureStart.bind(this));
 			window.addEvent('gesturechange', this.onGestureChange.bind(this));
 			window.addEvent('gestureend', this.onGestureEnd.bind(this));
-			*/
+			
+			// Mimic to touchend 
+			window.addEvent('touchcancel', this.onTouchEnd.bind(this));
 			
 			window.addEvent('orientationchange', this.onResize.bind(this));
 		} else {
 			window.addEvent('dblclick', this.onDblClick.bind(this));
+			window.addEvent('mousewheel', this.onScroll.bind(this));
 		}
 		
 		this.layout();
-
-		this.loadFromURL();
+		
+		this.store = new StickyStore({
+			name: 'files',
+			ready: this.ready.bind(this),
+			size: 200
+		});
+	},
+	
+	ready: function() {
+		this.store.get(this.fileURL, function(buffer) {
+			if (buffer) {
+				this.doc = new PDFJS.PDFDoc(buffer.toUint8Array());
+				this.setup();
+			} else {
+				this.load();
+			}
+		}.bind(this));
 	},
 
 	// TODO Split loader/progress indicator into extra class (with interface for DB loading)
-	loadFromURL: function() {
+	load: function() {
 		
 		var xhr = new XMLHttpRequest();
 		
 		xhr.open('GET', this.fileURL, true);
 		xhr.responseType = 'arraybuffer';
 		
-		var label = new Element('span', {text: 'Loading …'}),
-			progress = new Element('progress', {max: 100}),
-			status = new Element('label', {'id': 'progress'}).adopt(progress, label).inject(this.element);
+		var status = document.id('progress').setStyle('display', ''),
+			label = status.getElement('span'),
+			progress = status.getElement('progress');
 			
 		if (!('value' in progress)) progress.addClass('progress-spinner');
 			
@@ -132,10 +178,14 @@ PR.Container = new Class({
 			
 			var buffer = xhr.mozResponseArrayBuffer || xhr.responseArrayBuffer || new Uint8Array(xhr.response);
 			xhr = null;
-
-			this.doc = new PDFJS.PDFDoc(buffer);
 			
-			status.destroy();
+			// this.store.set(this.fileURL, buffer.toUnicode());
+			
+			console.time('new PDFJS.PDFDoc');
+			this.doc = new PDFJS.PDFDoc(buffer);
+			console.timeEnd('new PDFJS.PDFDoc');
+			
+			status.setStyle('display', 'none');
 			
 			this.setup();
 		}.bind(this);
@@ -151,7 +201,12 @@ PR.Container = new Class({
 			this.pageList[i] = new PR.Page(i, this);
 		}
 		
-		this.ready = true;
+		var page = this.pageList[this.pageNum];
+		page.setup();
+		this.pageWidth = page.doc.width;
+		this.pageHeight = page.doc.height;
+		
+		this.isReady = true;
 		this.layout();
 	},
 	
@@ -161,11 +216,17 @@ PR.Container = new Class({
 		
 		this.element.setStyles({width: this.width, height: this.height});
 		
-		if (!this.ready) return;
+		if (!this.isReady) return;
 		
-		var previousLayout = this.pageLayout;
-		this.pageLayout = (this.width > this.height) ? 2 : 1;
-		this.pageNum - (this.pageNum - this.pageStart) % 2;
+		var previousLayout = this.pageLayout, previousOrientation = this.pageOrientation;
+		
+		this.pageOrientation = this.pageWidth > this.pageHeight;
+		
+		// TODO Fix for small sizes that should already switch 
+		this.pageLayout = (!this.pageOrientation && this.pageHeight / this.height > this.pageWidth / this.width) ? 2 : 1;
+		
+		// TODO Fix for single-page layout
+		this.pageNum = 1 + (this.pageNum - this.pageStart) % this.pageLayout;
 		
 		if (previousLayout != this.pageLayout)
 			this.render();
@@ -189,6 +250,7 @@ PR.Container = new Class({
 			if (!page) continue; // TODO: add empty page?
 			
 			page.render();
+			
 			page.element.inject(container);
 		}
 		
@@ -196,6 +258,8 @@ PR.Container = new Class({
 		
 		// Clean up old elements after animation
 		var cleanup = function(previous) {
+			this.interactive = true;
+			
 			if (!previous || !previous.parentNode)
 				return;
 			
@@ -206,6 +270,7 @@ PR.Container = new Class({
 			
 			previous.destroy();
 			previous = null;
+			
 		}.bind(this, this.previousContainer);
 		
 		if (direction == -1) {
@@ -222,6 +287,7 @@ PR.Container = new Class({
 			this.previousContainer.setStyle(css3Support.transformStyle, 'translate(' + -this.width + 'px, 0)');
 		} else {
 			container.inject(this.element);
+			this.interactive = true;
 		}
 		
 	},
@@ -253,7 +319,7 @@ PR.Container = new Class({
 	triggerZoom: function(x, y) {
 		var zoom = (this.scale == 1);
 
-		if (zoom || (x || y)) {
+		if (zoom) {
 			this.center = {
 				x: x || (this.width / 2),
 				y: y || (this.height / 2)
@@ -264,8 +330,13 @@ PR.Container = new Class({
 	},
 	
 	turn: function(to) {
+		var now = Date.now();
+		if (this.turnTimeout && now < this.turnTimeout) return;
+		this.turnTimeout = now + 200;
+		
 		var num = this.pageNum + this.pageLayout * to;
-		if (num < 1 || num >= this.pageCount - this.pageLayout) return this;
+		
+		if (num < this.pageLayout - this.pageStart || num > this.pageCount - this.pageLayout + this.pageStart) return this;
 		
 		this.pageNum = num;
 		this.render(to);
@@ -274,19 +345,23 @@ PR.Container = new Class({
 	pan: function(zoomTo) {
 		zoomTo = zoomTo || this.scale;
 		
+		// TODO: Fit page in-between margin by adjusting center to scale and page dimensions
+		
 		// correct rendering after zoom
-		var endHandler = function(evt) {
-			if (!endHandler) return;
-			endHandler = null;
+		var cleanup = function(evt) {
+			if (!cleanup) return;
+			cleanup = null;
 			
-			this.currentContainer.removeEventListener(css3Support.transitionEndEvent, endHandler, false);
+			this.currentContainer.removeEventListener(css3Support.transitionEndEvent, cleanup, false);
 			
 			(function() {
+				
+				this.interactive = true;
 
 				// Lock on target after zooming in
 				if (this.scale > 1) {
 				
-					this.currentContainer.removeClass('animated');
+					if (evt) this.currentContainer.removeClass('animated');
 					
 					var styles = {
 						width: this.width * this.scale,
@@ -302,7 +377,8 @@ PR.Container = new Class({
 					this.updateRender();
 					
 					this.currentContainer.offsetLeft; // flush re-flow
-					this.currentContainer.addClass('animated');
+					
+					if (evt) this.currentContainer.addClass('animated');
 				} else {
 					this.updateRender();
 				}
@@ -310,6 +386,12 @@ PR.Container = new Class({
 			
 		}.bind(this);
 		
+		if (zoomTo == this.scale) {
+			cleanup();
+			return;
+		}
+		
+		this.interactive = false;
 		
 		if (zoomTo > 1) { // Start zoom in
 			
@@ -318,6 +400,7 @@ PR.Container = new Class({
 					x: this.center.x * this.scale,
 					y: this.center.y * this.scale
 				});
+				cleanup = null; // simple animation
 			} else {
 				this.scale = zoomTo;
 				
@@ -350,11 +433,11 @@ PR.Container = new Class({
 			this.currentContainer.setStyle(css3Support.transformStyle, 'scale(1) translate(0px, 0px)');
 		}
 		
-		this.currentContainer.addEventListener(css3Support.transitionEndEvent, endHandler, false);
+		if (cleanup) this.currentContainer.addEventListener(css3Support.transitionEndEvent, cleanup, false);
 	},
 
 	onKey: function(evt) {
-		if (!this.ready) return;
+		if (!this.interactive) return;
 		
 		switch (evt.key) {
 		case 'left':
@@ -398,29 +481,47 @@ PR.Container = new Class({
 	onDblClick: function(evt) {
 		evt.preventDefault();
 		
-		if (!this.ready) return;
+		if (!this.interactive) return;
 		
-		this.triggerZoom(evt.page.x, evt.page.y)
+		this.triggerZoom(evt.page.x, evt.page.y);
+	},
+	
+	onScroll: function(evt) {
+		evt.preventDefault();
+		
+		if (!this.interactive || Math.abs(evt.wheel) < 0.3) return;
+		
+		if (this.scale > 1) {
+			// TODO Allow zoom in wheel when scale works fine
+			if (evt.wheel > 0) this.pan(1);
+		} else {
+			this.turn((evt.wheel < 0) ? 1 : -1);
+		}
+		
 	},
 	
 	onTouchStart: function(evt) {
 		evt.preventDefault();
 		
-		if (!this.ready) return;
+		if (!this.interactive) return;
 		
-    if (evt.targetTouches.length != 1)
+    if (evt.targetTouches && evt.targetTouches.length != 1)
   		return false;
   		
-  	var previous = this.touchStart;
-		var touch = this.touchStart = {
-			x: evt.targetTouches[0].clientX,
-			y: evt.targetTouches[0].clientY,
-			time: Date.now()
-		};
-		
+  	var coords = (evt.targetTouches) ? evt.targetTouches[0] : evt;
+  	
+  	var previous = this.touchLast,
+	  	touch = this.touchStart = this.touchLast = {
+				x: coords.pageX || coords.page.x,
+				y: coords.pageY || coords.page.y,
+				time: Date.now()
+			};
+			
 		if (touch.x > this.width - this.width / 10) {
+			this.touchLast = null;
 			this.turn(1);
 		} else if (touch.x < this.width / 10) {
+			this.touchLast = null;
 			this.turn(-1);
 		}
 		
@@ -432,31 +533,62 @@ PR.Container = new Class({
 	onTouchMove: function(evt) {
 		evt.preventDefault();
 		
-		if (!this.ready) return;
+		if (!this.interactive || !this.touchStart) return;
+		
+		var current = (evt.targetTouches) ? evt.targetTouches[0] : evt,
+			distance = {
+				x: this.touchStart.x - (current.pageX || current.page.x),
+				y: this.touchStart.y - (current.pageY || current.page.y)
+			};
+			
+		if (distance.x.abs() < 5 && distance.y.abs() < 5) return;
+		
+		if (this.scale <= 1) return;
+		
+		if (!this.dragDistance) {
+			this.currentContainer.removeClass('animated');
+		}
+		this.dragDistance = distance;
+		
+		this.currentContainer.setStyle(css3Support.transformStyle, 'translate({x}px, {y}px)'.substitute({
+			x: (-this.center.x) - distance.x,
+			y: (-this.center.y) - distance.y
+		}));
 	},
 	
 	onTouchEnd: function(evt) {
 		evt.preventDefault();
 		
-		if (!this.ready) return;
+		this.touchStart = null;
+		
+		if (this.dragDistance) {
+			this.currentContainer.addClass('animated');
+			this.center = {
+				x: this.center.x + this.dragDistance.x,
+				y: this.center.y + this.dragDistance.y
+			};
+			
+			this.dragDistance = null;
+		}
+		
 	},
 	
 	onGestureStart: function(evt) {
 		evt.preventDefault();
 		
-		if (!this.ready) return;
+		if (!this.interactive) return;
 	},
 	
 	onGestureChange: function(evt) {
 		evt.preventDefault();
 		
-		if (!this.ready) return;
+		if (!this.interactive) return;
 	},
 	
 	onGestureEnd: function(evt) {
 		evt.preventDefault();
 		
-		if (!this.ready) return;
+		if (!this.interactive) return;
 	}
 	
 }); // end PR.Container
@@ -500,7 +632,7 @@ PR.Page = new Class({
 		
 		var scale = this.container.scale,
 			pageLayout = this.container.pageLayout,
-			position = (this.num - 1) % pageLayout;
+			position = (this.num - this.container.pageStart) % pageLayout;
 		
 		version = version || 'original';
 		bounds = bounds || {
@@ -515,8 +647,10 @@ PR.Page = new Class({
 				? {x: bounds.x, y: docSize.y / sizeRel.x} // stretch by x
 				: {x: docSize.x / sizeRel.y, y: bounds.y}; // stretch by y
 		
-		if (this.version == version && this.width == size.x && this.height == size.y)
+		if (this.version == version && this.width == size.x && this.height == size.y) {
+			this.doc = null;
 			return;
+		}
 			
 		this.version = version;
 		this.width = size.x.floor();
@@ -524,9 +658,8 @@ PR.Page = new Class({
 		
 		var current = this.canvasList[this.version];
 		if (current && current.width == this.width && current.height == this.height) {
-			console.log('PR.Page: SKIPPED render ' + this.num + '-' + version);
-			
 			this.onRenderComplete();
+			this.doc = null;
 			return this;
 		}
 		
@@ -557,32 +690,22 @@ PR.Page = new Class({
 		
 		this.element.setStyles(styles);
 		
-		/*
-		maxHeight: (this.height / this.container.height * 100).round(3) + '%',
-		minWidth: (this.width / this.container.width * 100).round(3) + '%',
-		minHeight: (this.height / this.container.height * 100).round(3) + '%'
-		 */
-		
-		/*
-		this.element.setStyles({
-			width: this.width,
-			height: this.height
-		});
-		*/
-		
 		this.running.push(this.version);
 		this.container.running++;
 		
 		this.canvasList[this.version] = canvas;
 		
 		// Render PDF page into canvas context
+		console.time('doc.startRendering ' + this.num + ' / ' + this.version);
 		this.doc.startRendering(context, this.onRenderComplete.bind(this));
-		
+		this.doc = null;
 		
 		return this;
 	},
 	
 	onRenderComplete: function() {
+		console.timeEnd('doc.startRendering ' + this.num + ' / ' + this.version);
+		
 		this.running.erase(this.version);
 		
 		this.canvasList[this.version].inject(this.element);
@@ -595,4 +718,18 @@ PR.Page = new Class({
 
 }); // end PR.Page
 
-new PR.Container('samples/238670-Innovation-Horizon.pdf');
+
+// improving-interface-design-29757.pdf
+// 69309864-KPCB-Internet-Trends-2011.pdf
+// CLX079811_Replica.extract.pdf
+// html5apis-wherenomanhasgonebefore-parisweb-111013050140-phpapp02.pdf
+// mozilla_dnt-field-guide.pdf
+// innovation5-0pdf-111028111543-phpapp02.pdf
+
+new PR.Container('samples/compressed.tracemonkey-pldi-09.pdf');
+
+// html5apis-wherenomanhasgonebefore-parisweb-111013050140-phpapp02.pdf
+// 326077-World-Population-Datasheet-2007.pdf
+// How to Survive Zombies.pdf
+// stevequotes-111006053709-phpapp01.pdf
+// slidesthatrockpdf-111012082418-phpapp02.pdf
