@@ -1,4 +1,38 @@
 <!doctype html>
+<!-- ***** BEGIN LICENSE BLOCK *****
+   - Version: MPL 1.1/GPL 2.0/LGPL 2.1
+   -
+   - The contents of this file are subject to the Mozilla Public License Version
+   - 1.1 (the "License"); you may not use this file except in compliance with
+   - the License. You may obtain a copy of the License at
+   - http://www.mozilla.org/MPL/
+   -
+   - Software distributed under the License is distributed on an "AS IS" basis,
+   - WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+   - for the specific language governing rights and limitations under the
+   - License.
+   -
+   - The Original Code is Mozilla Labs Tactile PDF.JS Reader.
+   -
+   - The Initial Developer of the Original Code is Mozilla.
+   - Portions created by the Initial Developer are Copyright (C) 2011
+   - the Initial Developer. All Rights Reserved.
+   -
+   - Contributor(s):
+   -
+   - Alternatively, the contents of this file may be used under the terms of
+   - either the GNU General Public License Version 2 or later (the "GPL"), or
+   - the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+   - in which case the provisions of the GPL or the LGPL are applicable instead
+   - of those above. If you wish to allow use of your version of this file only
+   - under the terms of either the GPL or the LGPL, and not to allow others to
+   - use your version of this file under the terms of the MPL, indicate your
+   - decision by deleting the provisions above and replace them with the notice
+   - and other provisions required by the LGPL or the GPL. If you do not delete
+   - the provisions above, a recipient may use your version of this file under
+   - the terms of any one of the MPL, the GPL or the LGPL.
+   -
+   - ***** END LICENSE BLOCK ***** -->
 <html class="no-js">
 <head>
   <meta charset="utf-8">
@@ -26,6 +60,23 @@
     <div id="main" role="main" style="display: none">
     	<div id="dashboard">
 				<ul>
+          <!--
+          <li>
+            <a href="samples/CLX079811_Replica.exported.pdf">
+              Country Living <small>- Jul/Aug 2011</small>
+            </a>
+          </li>
+          <li>
+            <a href="samples/GHK089811_Replica.pdfx3.pdf">
+              Good Housekeeping <small>- Aug 2011</small>
+            </a>
+          </li>
+          -->
+          <li>
+            <a href="samples/RBK089811_Replica.extract.pdf">
+              REDBOOK
+            </a>
+          </li>
 					<li>
 						<a href="samples/compressed.tracemonkey-pldi-09.pdf">
 							Tracemonkey 09
@@ -70,28 +121,10 @@
 
   <!-- <script src="js/vendor/pdf-js/build/pdf.js"></script> -->
   
-  <script src="js/vendor/pdf-js/src/core.js"></script>
-  <script src="js/vendor/pdf-js/src/util.js"></script> 
-  <script src="js/vendor/pdf-js/src/canvas.js"></script> 
-  <script src="js/vendor/pdf-js/src/obj.js"></script> 
-  <script src="js/vendor/pdf-js/src/function.js"></script>
-  <script src="js/vendor/pdf-js/src/charsets.js"></script> 
-  <script src="js/vendor/pdf-js/src/cidmaps.js"></script> 
-  <script src="js/vendor/pdf-js/src/colorspace.js"></script> 
-  <script src="js/vendor/pdf-js/src/crypto.js"></script> 
-  <script src="js/vendor/pdf-js/src/evaluator.js"></script> 
-  <script src="js/vendor/pdf-js/src/fonts.js"></script> 
-  <script src="js/vendor/pdf-js/src/glyphlist.js"></script> 
-  <script src="js/vendor/pdf-js/src/image.js"></script> 
-  <script src="js/vendor/pdf-js/src/metrics.js"></script> 
-  <script src="js/vendor/pdf-js/src/parser.js"></script> 
-  <script src="js/vendor/pdf-js/src/pattern.js"></script> 
-  <script src="js/vendor/pdf-js/src/stream.js"></script> 
-  <script src="js/vendor/pdf-js/src/worker.js"></script> 
+  <script src="js/vendor/pdf-js/build/pdf.js"></script>
   
   <script src="js/vendor/mootools.js"></script>
   <script src="js/vendor/powertools-1.1.1.js"></script>
-  <script src="js/vendor/sticky/sticky-0.7.js"></script>
   
   <script src="js/script.js"></script>
 </body>
